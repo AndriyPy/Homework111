@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import uvicorn
 import sqlite3
 
-app = FastAPI()
+
 
 class Task(BaseModel):
     title: str
@@ -31,23 +31,30 @@ def init_db():
     connection.commit()
     connection.close()
 
-init_db()
+app = FastAPI(on_startup=[init_db])
 
 @app.post('/createtask/')
 async def create_task(task: Task):
     try:
         connection = sqlite3.connect('todo.db')
         cursor = connection.cursor()
+
+        cursor.execute('''SELECT id FROM Todolist WHERE title = ?''',(task.title,))
+        existing_task = cursor.fetchone()
+
+        if existing_task:
+            raise HTTPException(status_code=400,detail=f"Task with title '{task.title}' already exists")
+
         cursor.execute(
             '''INSERT INTO Todolist (title, description) VALUES (?, ?)''',
             (task.title, task.description)
         )
         connection.commit()
-        connection.close()
-    except Exception as e:
+    except sqlite3.DatabaseError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
-        connection.close()
+        if connection is not None:
+            connection.close()
 
     return {"message": f"Task '{task.title}' added"}
 
@@ -66,11 +73,13 @@ async def edit_task(task: EditTask):
         conn.commit()
         return {"message": f"Task '{task.title}' updated"}
 
-    except Exception as e:
+
+    except sqlite3.DatabaseError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 @app.delete('/deletetask/')
@@ -86,13 +95,14 @@ async def delete_task(task:DeleteTask):
 
         cursor.execute('DELETE FROM Todolist WHERE id = ?', (task.id,))
         conn.commit()
-        conn.close()
-    except Exception as e:
+    except sqlite3.DatabaseError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
-    finally:
-        conn.close()
 
+    finally:
+        if conn is not None:
+            conn.close()
+    return {"message": f"Task with id {task.id} deleted"}
 
 
 @app.get('/one_task/')
@@ -112,11 +122,13 @@ async def one_task(id: int):
             "description": row[2]
         }
 
-    except Exception as e:
+
+    except sqlite3.DatabaseError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 @app.get('/tasks/')
@@ -142,11 +154,14 @@ async def get_tasks():
 
         return {"tasks": tasks}
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+    except sqlite3.DatabaseError as e:
+        raise HTTPException(status_code=404, detail=f"Database error: {e}")
+
 
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 if __name__ == "__main__":
     uvicorn.run("todo:app", reload=True)
