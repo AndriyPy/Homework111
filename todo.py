@@ -35,6 +35,7 @@ app = FastAPI(on_startup=[init_db])
 
 @app.post('/createtask/')
 async def create_task(task: Task):
+    connection = None
     try:
         connection = sqlite3.connect('todo.db')
         cursor = connection.cursor()
@@ -61,6 +62,7 @@ async def create_task(task: Task):
 
 @app.put('/edit_task/')
 async def edit_task(task: EditTask):
+    conn = None
     try:
         conn = sqlite3.connect('todo.db')
         cursor = conn.cursor()
@@ -84,6 +86,7 @@ async def edit_task(task: EditTask):
 
 @app.delete('/deletetask/')
 async def delete_task(task:DeleteTask):
+    conn = None
     try:
         conn = sqlite3.connect('todo.db')
         cursor = conn.cursor()
@@ -107,6 +110,7 @@ async def delete_task(task:DeleteTask):
 
 @app.get('/one_task/')
 async def one_task(id: int):
+    conn = None
     try:
         conn = sqlite3.connect('todo.db')
         cursor = conn.cursor()
@@ -133,6 +137,7 @@ async def one_task(id: int):
 
 @app.get('/tasks/')
 async def get_tasks():
+    conn = None
     try:
         conn = sqlite3.connect('todo.db')
         cursor = conn.cursor()
