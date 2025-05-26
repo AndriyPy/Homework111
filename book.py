@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, status
 import uvicorn
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydanticurok import BaseModel, Field, EmailStr, validator
 import re
 
 app = FastAPI()
@@ -16,30 +16,12 @@ class RegisterUser(BaseModel):
     name: str = Field(min_length=2)
     surname: str = Field(min_length=2)
     email: EmailStr = Field(description="email")
-    password: str = Field(min_length=8)
-    phone: str = Field(description="Номер мобільного телефону")
-
-    @validator('password')
-    def password_complexity(cls, value):
-        if not re.search(r'[A-Z]', value):
-            raise ValueError('Пароль повинен містити принаймні одну велику літеру')
-        if not re.search(r'[a-z]', value):
-            raise ValueError('Пароль повинен містити принаймні одну маленьку літеру')
-        if not re.search(r'\d', value):
-            raise ValueError('Пароль повинен містити принаймні одну цифру')
-        if not re.search(r'[^\w\s]', value):
-            raise ValueError('Пароль повинен містити принаймні один спеціальний символ')
-        return value
-
-
-    @validator('phone')
-    def phone_must_be_valid(cls, value):
-        if value.startswith('+380') and len(value) == 13 and value[1:].isdigit():
-            return value
-        elif value.startswith('0') and len(value) == 10 and value[1:].isdigit():
-            return value
-        else:
-            raise ValueError('Номер телефону має бути у форматі +380XXXXXXXXX або 0XXXXXXXXX')
+    password: str = Field(
+        min_length=8,
+        pattern=r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).+$',
+        description="Має містити хоча б одну велику літеру, одну маленьку, одну цифру та один спецсимвол"
+    )
+    phone_number:str = Field(pattern=r"\+?\d{10,15}")
 
 
 books= {
