@@ -5,6 +5,7 @@ from fastapi.security import (
     HTTPBasic,
     OAuth2PasswordBearer,
     OAuth2PasswordRequestForm,
+    HTTPBasicCredentials
 )
 from pydantic import BaseModel, EmailStr, SecretStr, Field
 import base64
@@ -55,10 +56,11 @@ class UserShow(UserCreate):
 async def login( form_data: OAuth2PasswordRequestForm = Depends(),):
     if users is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User does not exist.")
-    user_data = users.get(form_data.username)
 
-    if user_data["password"] != form_data.password:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect password.")
+    user_data = users.get(form_data.username)
+    if user_data:
+        if user_data["password"] != form_data.password:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect password.")
 
     token_value = base64.urlsafe_b64encode(
         f"{user_data['email']}-{user_data['name']}".encode("utf-8")
@@ -89,6 +91,18 @@ async def get_user_me(token: str = Depends(oauth2_scheme)):
             return {"email": email, "name": user["name"]}
 
     raise HTTPException(status_code=404, detail="User not found")
+
+
+
+@app.post("/basic")
+async def basic(credentials: HTTPBasicCredentials = Depends(security)):
+    user = users.get(credentials.username)
+    if not user or user["password"] != credentials.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        )
+    return {"message": f"Hello, {credentials.username}!"}
 
 
 
