@@ -12,7 +12,7 @@ import base64
 
 
 
-app = FastAPI()
+app = FastAPI(description="API with OAuth2 and HTTP Basic",)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 security = HTTPBasic()
 
@@ -79,10 +79,14 @@ async def decode_token(token: str):
 
     return decoded_user_email
 
-@app.get("/me")
+@app.get("/me", summary="Отримати інформацію про користувача",
+         description="Повертає email та ім'я користувача на основі переданого access токена.",
+         responses={
+             200: {"description": "Інформація про користувача"},
+             401: {"description": "Невірний або недійсний токен"},
+             404: {"description": "Користувача не знайдено"},})
 async def get_user_me(token: str = Depends(oauth2_scheme)):
     email = await decode_token(token)
-
     if not email:
         raise HTTPException(status_code=401, detail="Invalid token")
 
@@ -94,7 +98,13 @@ async def get_user_me(token: str = Depends(oauth2_scheme)):
 
 
 
-@app.post("/basic")
+@app.post("/basic",
+    summary="HTTP Basic авторизація",
+    description="Авторизація через стандартний HTTP Basic",
+    responses={
+        200: {"description": "Успішний логін"},
+        401: {"description": "Невірні дані"},
+    })
 async def basic(credentials: HTTPBasicCredentials = Depends(security)):
     user = users.get(credentials.username)
     if not user or user["password"] != credentials.password:
