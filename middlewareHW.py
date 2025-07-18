@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 import uvicorn
 import logging
 from datetime import datetime
@@ -13,7 +14,7 @@ async def log_requests(request: Request, call_next):
     logger.info(f"request_method: {request.method}, url: {request.url}, time: {datetime.now()}")
 
     if "X-Custom-Header" not in request.headers:
-        raise HTTPException(status_code=400, detail="Missing X-Custom-Header")
+        return JSONResponse(status_code=400, content="Missing X-Custom-Header")
 
     response = await call_next(request)
     return response
@@ -23,7 +24,7 @@ async def log_requests(request: Request, call_next):
 async def root(request: Request):
     return {
         "message": "main page",
-        "X-Custom-Header": request.state.custom_header
+        "X-Custom-Header": request.headers["X-Custom-Header"],
     }
 
 @app.get("/second")
