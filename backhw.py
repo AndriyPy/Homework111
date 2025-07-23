@@ -3,10 +3,6 @@ from pydantic import BaseModel, Field, EmailStr
 import uvicorn
 import asyncio
 import logging
-import pathlib
-
-
-module_path = pathlib.Path(__file__).parent
 
 task_queue = asyncio.Queue()
 
@@ -56,7 +52,7 @@ async def post_email(user_email: Email, backgroundtasks: BackgroundTasks):
 
 @app.post("/post_file")
 async def file(file: bytes = File(default=None)):
-    with open(module_path / "picture_from_bytes.jpeg", mode="wb") as fp:
+    with open("picture_from_bytes.jpeg", mode="wb") as fp:
         fp.write(file)
     logger.info("file was writen")
     return {"file_size":len(file)}
