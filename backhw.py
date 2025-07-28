@@ -1,8 +1,11 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile
+from fastapi import FastAPI, HTTPException, BackgroundTasks, File, UploadFile, Path, status
 from pydantic import BaseModel, Field, EmailStr
 import uvicorn
 import asyncio
 import logging
+import pytest
+import httpx
+
 
 task_queue = asyncio.Queue()
 
@@ -21,6 +24,11 @@ async def process_task_queue():
 
 async def startup_event():
     asyncio.create_task(process_task_queue())
+
+async def image(file: UploadFile):
+    file_size = Path(file).stat().st_size
+    logger.info(f"size: {file_size}")
+
 
 app = FastAPI( on_startup=(startup_event,))
 
@@ -46,16 +54,30 @@ class Email(BaseModel):
 @app.post("/post_email")
 async def post_email(user_email: Email, backgroundtasks: BackgroundTasks):
     logger.info(f"Request received to send message to: {user_email.email}")
-    await task_queue.put(write_message(user_email.email, user_email.text))
+    backgroundtasks.add_task(write_message, user_email.email, user_email.text)
     return {"message": f"request to send a letter accepted {user_email.email}"}
 
 
 @app.post("/post_file")
-async def file(file: bytes = File(default=None)):
-    with open("picture_from_bytes.jpeg", mode="wb") as fp:
+async def upload_file(file: bytes = File(...), backgroundtasks: BackgroundTasks = BackgroundTasks()):
+    path = "picture_from_bytes.jpeg"
+    with open(path, "wb") as fp:
         fp.write(file)
-    logger.info("file was writen")
-    return {"file_size":len(file)}
+    backgroundtasks.add_task(image, path)
+    logger.info("file was written")
+    return {"file_size": len(file)}
+
+
+
+@pytest.mark.asincio
+async def test_add_task_to_queue():
+    async with httpx.AsyncClient(base_url="http://127.0.0.1:8000") as client:
+        response = await client.post("/post_email/", params={"name@gmail.com":"hello"})
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    assert response.json() == {"message":"Task 'hello' has benn added to queue."}
+    assert task_queue.qsize() == 1
+
+
 
 if __name__ == "__main__":
     uvicorn.run("backhw:app", reload=True)
