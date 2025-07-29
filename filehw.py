@@ -5,7 +5,7 @@ import uvicorn
 from PIL import Image
 import io
 import pytest
-import os
+
 
 app = FastAPI()
 client = TestClient(app)
@@ -43,6 +43,34 @@ async def photo(backgroundtasks: BackgroundTasks, file: UploadFile = File(...)):
         "message": f"Файл буде збережений як {SAVE_PATH}"
     })
 
+
+def test_upload_file_success() -> None:
+    with open("test_file_supported_format.jpg", "rb") as f:
+        expected_size = len(f.read())
+        f.seek(0)
+        response = client.post(
+            "/photo",
+            files={"file": f},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "filename": "test_file_supported_format.jpg",
+        "content_type": "image/jpeg",
+        "size": expected_size,
+        "message": f"Файл буде збережений як {SAVE_PATH}",
+    }
+
+
+def test_upload_file_not_supported_format() -> None:
+    with open("test_file_unsupported_format.webp", "rb") as f:
+        response = client.post(
+            "/photo",
+            files={"file": f},
+        )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "format doesn't exist"}
 
 
 if __name__ == "__main__":
