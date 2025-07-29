@@ -59,23 +59,32 @@ async def post_email(user_email: Email, backgroundtasks: BackgroundTasks):
 
 
 @app.post("/post_file")
-async def upload_file(file: bytes = File(...), backgroundtasks: BackgroundTasks = BackgroundTasks()):
+async def upload_file(backgroundtasks: BackgroundTasks, file: UploadFile = File(...)):
     path = "picture_from_bytes.jpeg"
+
+    contents = await file.read()
+
     with open(path, "wb") as fp:
-        fp.write(file)
+        fp.write(contents)
+
     backgroundtasks.add_task(image, path)
+
     logger.info("file was written")
-    return {"file_size": len(file)}
+    return {"file_size": len(contents)}
 
 
 
-@pytest.mark.asincio
-async def test_add_task_to_queue():
+@pytest.mark.asyncio
+async def test_send_email() -> None:
     async with httpx.AsyncClient(base_url="http://127.0.0.1:8000") as client:
-        response = await client.post("/post_email/", params={"name@gmail.com":"hello"})
-    assert response.status_code == status.HTTP_202_ACCEPTED
-    assert response.json() == {"message":"Task 'hello' has benn added to queue."}
-    assert task_queue.qsize() == 1
+        response = await client.post(
+            "/post_email",
+            json={"email": "name@gmail.com", "text": "Some text"},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "message": "request to send a letter accepted name@gmail.com"
+    }
 
 
 
