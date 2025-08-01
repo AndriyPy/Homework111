@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Chat</title>
+</head>
+<body>
+    <h1>WebSocket Chat</h1>
+
+    <div id="login-form">
+        <h3>Логін</h3>
+        <form id="login" onsubmit="login(event)">
+            <input type="email" id="email" placeholder="Email" required />
+            <input type="password" id="password" placeholder="Пароль" required />
+            <button type="submit">Увійти</button>
+        </form>
+        <p id="login-error" style="color:red;"></p>
+    </div>
+
+    <div id="chat" style="display:none;">
+        <p>Ваш client_id: <span id="clientId"></span></p>
+        <form id="chat-form" onsubmit="sendMessage(event)">
+            <input type="text" id="messageText" autocomplete="off" placeholder="Введіть повідомлення" />
+            <button type="submit">Надіслати</button>
+        </form>
+        <ul id="messages"></ul>
+    </div>
+
+<script>
+    let ws;
+    let clientId = Math.floor(Math.random() * 1000000);
+    let token = null;
+
+    document.getElementById("clientId").innerText = clientId;
+
+    async function login(event) {
+        event.preventDefault();
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        const loginError = document.getElementById("login-error");
+
+        try {
+            const response = await fetch('/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({username: email, password: password})
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                loginError.innerText = errorData.detail || "Помилка входу";
+                return;
+            }
+
+            const data = await response.json();
+            token = data.access_token;
+
+            loginError.innerText = "";
+            document.getElementById("login-form").style.display = "none";
+            document.getElementById("chat").style.display = "block";
+
+            connectWebSocket();
+
+        } catch (error) {
+            loginError.innerText = "Помилка мережі";
+            console.error(error);
+        }
+    }
+
+    function connectWebSocket() {
+        ws = new WebSocket(`ws://${window.location.host}/ws/${clientId}?token=${token}`);
+
+        ws.onopen = () => {
+            console.log("WebSocket connected");
+        };
+
+        ws.onmessage = (event) => {
+            const messages = document.getElementById("messages");
+            const message = document.createElement("li");
+            message.textContent = event.data;
+            messages.appendChild(message);
+        };
+
+        ws.onclose = () => {
+            alert("З'єднання WebSocket закрите");
+            document.getElementById("chat").style.display = "none";
+            document.getElementById("login-form").style.display = "block";
+        };
+
+        ws.onerror = (err) => {
+            console.error("WebSocket error:", err);
+        };
+    }
+
+    function sendMessage(event) {
+        event.preventDefault();
+        const input = document.getElementById("messageText");
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(input.value);
+            input.value = "";
+        } else {
+            alert("З'єднання не встановлено");
+        }
+    }
+</script>
+
+</body>
+</html>
